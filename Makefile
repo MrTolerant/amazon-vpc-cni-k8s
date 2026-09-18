@@ -15,7 +15,7 @@
 .PHONY: all dist check clean \
 		lint format check-format vet docker-vet \
 		build-linux docker docker-init \
-		unit-test unit-test-race build-docker-test docker-func-test \
+		unit-test unit-test-privileged unit-test-race build-docker-test docker-func-test \
 		build-metrics docker-metrics \
 		metrics-unit-test docker-metrics-test
 
@@ -222,6 +222,12 @@ unit-test: export AWS_VPC_K8S_CNI_LOG_FILE=stdout
 unit-test:    ## Run unit tests
 	go test -v $(VENDOR_OVERRIDE_FLAG) -coverprofile=coverage.txt -covermode=atomic ./cmd/... ./pkg/...
 	go test -v $(VENDOR_OVERRIDE_FLAG) ./test/integration/common/...
+
+# Kernel tests need CAP_SYS_ADMIN for network namespaces; build unprivileged, run under sudo.
+unit-test-privileged:    ## Run unit tests that need root (Linux only)
+	go test -c $(VENDOR_OVERRIDE_FLAG) -o networkutils.test ./pkg/networkutils/
+	sudo env AWS_VPC_K8S_CNI_LOG_FILE=stdout ./networkutils.test -test.v -test.run '^TestSetupENINetworkNoPrefixRoute$$'
+	rm -f networkutils.test
 
 # Run unit tests with race detection (can only be run natively)
 unit-test-race: export AWS_VPC_K8S_CNI_LOG_FILE=stdout

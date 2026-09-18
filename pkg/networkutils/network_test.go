@@ -163,6 +163,13 @@ func withENITestNetworkNamespace(t *testing.T, run func()) {
 		t.Fatal(err)
 	}
 	defer originalNS.Close()
+	if err := unix.Unshare(unix.CLONE_NEWNET); err != nil {
+		runtime.UnlockOSThread()
+		if os.Geteuid() != 0 {
+			t.Skipf("needs CAP_SYS_ADMIN, run `make unit-test-privileged`: %v", err)
+		}
+		t.Fatal(err)
+	}
 	defer func() {
 		if err := originalNS.Set(); err != nil {
 			t.Errorf("restore network namespace: %v", err)
@@ -170,7 +177,6 @@ func withENITestNetworkNamespace(t *testing.T, run func()) {
 		}
 		runtime.UnlockOSThread()
 	}()
-	require.NoError(t, unix.Unshare(unix.CLONE_NEWNET))
 
 	run()
 }
